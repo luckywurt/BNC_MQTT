@@ -1,0 +1,59 @@
+<!DOCTYPE RCC><RCC version="1.0">
+<qresource>
+    <file>ntrip-logo.png</file>
+    <file>bncflowchart.png</file>
+    <file>bnchelp.html</file>
+    <file>bncabout.html</file>
+    <file>worldmap.dat</file>
+    <file>world.svg</file>
+</qresource>
+<qresource>
+    <file>IMG/BKG_Logo_oS.jpg</file>
+    <file>IMG/Figure01.png</file>
+    <file>IMG/Figure02.png</file>
+    <file>IMG/Figure03.png</file>
+    <file>IMG/Figure04.png</file>
+    <file>IMG/Figure05.png</file>
+    <file>IMG/Figure06.png</file>
+    <file>IMG/Figure07.png</file>
+    <file>IMG/Figure08.png</file>
+    <file>IMG/Figure09.png</file>
+    <file>IMG/Figure10.png</file>
+    <file>IMG/Figure11.png</file>
+    <file>IMG/Figure12.png</file>
+    <file>IMG/Figure13.png</file>
+    <file>IMG/Figure14.png</file>
+    <file>IMG/Figure15.png</file>
+    <file>IMG/Figure16.png</file>
+    <file>IMG/Figure17.png</file>
+    <file>IMG/Figure18.png</file>
+    <file>IMG/Figure19.png</file>
+    <file>IMG/Figure20.png</file>
+    <file>IMG/Figure21.png</file>
+    <file>IMG/Figure22.png</file>
+    <file>IMG/Figure23.png</file>
+    <file>IMG/Figure24.png</file>
+    <file>IMG/Figure25.png</file>
+    <file>IMG/Figure26.png</file>
+    <file>IMG/Figure27.png</file>
+    <file>IMG/Figure28.png</file>
+    <file>IMG/Figure29.png</file>
+    <file>IMG/Figure30.png</file>
+    <file>IMG/Figure31.png</file>
+    <file>IMG/Figure32.png</file>
+    <file>IMG/Figure33.png</file>
+    <file>IMG/Figure34.png</file>
+    <file>IMG/Figure35.png</file>
+    <file>IMG/Figure36.png</file>
+    <file>IMG/Figure37.png</file>
+    <file>IMG/Figure38.png</file>
+    <file>IMG/Figure39.png</file>
+    <file>IMG/Figure40.png</file>
+</qresource>
+<qresource>
+    <file>map/map_osm.html</file>
+    <file>map/crosshair.png</file>
+    <file>map/reddot.png</file>
+    <file>map/yellowdot.png</file>
+</qresource>
+</RCC>
