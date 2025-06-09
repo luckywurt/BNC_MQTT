@@ -38,6 +38,22 @@
  *
  * -----------------------------------------------------------------------*/
 
+/* -------------------------------------------------------------------------
+ * BKG NTRIP 客户端
+ * -------------------------------------------------------------------------
+ *
+ * 类名:      bncWindow
+ *
+ * 目的:     实现应用程序的主窗口。
+ *
+ * 作者:     L. Mervart
+ *
+ * 创建日期: 2005年12月24日
+ *
+ * 修改记录:
+ *
+ * -----------------------------------------------------------------------*/
+
 #include <iostream>
 
 #include <QAction>
@@ -260,6 +276,12 @@ bncWindow::bncWindow() {
   connect(_rnxSkelPathLineEdit, SIGNAL(textChanged(const QString &)), this, SLOT(slotBncTextChanged()));
   connect(_rnxVersComboBox, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(slotBncTextChanged()));
 
+  // MQTT Config Options
+  // --------------------------
+  _mqttHostLineEdit = new QLineEdit(settings.value("mqttHost").toString());
+  _mqttPortLineEdit = new QLineEdit(settings.value("mqttPort").toString());
+  _mqttTopicLineEdit = new QLineEdit(settings.value("mqttTopic").toString());
+
   // RINEX Ephemeris Options
   // -----------------------
   _ephPathLineEdit = new QLineEdit(settings.value("ephPath").toString());
@@ -470,6 +492,12 @@ bncWindow::bncWindow() {
   QFont msFont(""); msFont.setStyleHint(QFont::TypeWriter); // default monospace font
   _log->setFont(msFont);
   _log->document()->setMaximumBlockCount(1000);
+
+  //MQTT Log
+  _mqttLog = new QTextEdit();
+  _mqttLog->setReadOnly(true);
+  _mqttLog->setFont(msFont);
+  _mqttLog->document()->setMaximumBlockCount(1000);
 
   // Combine Corrections
   // -------------------
@@ -726,9 +754,11 @@ bncWindow::bncWindow() {
   QWidget* cmbgroup = new QWidget();
   QWidget* uploadgroup = new QWidget();
   QWidget* uploadEphgroup = new QWidget();
+  QWidget* mqttConfiggroup = new QWidget();
   _aogroup->addTab(pgroup,tr("Network"));
   _aogroup->addTab(ggroup,tr("General"));
   _aogroup->addTab(ogroup,tr("RINEX Observations"));
+  _aogroup->addTab(mqttConfiggroup,tr("MQTT Config"));
   _aogroup->addTab(egroup,tr("RINEX Ephemeris"));
   _aogroup->addTab(reqcgroup,tr("RINEX Editing && QC"));
   _aogroup->addTab(sp3CompGroup,tr("SP3 Comparison"));
@@ -749,6 +779,7 @@ bncWindow::bncWindow() {
   // -------
   _loggroup = new QTabWidget();
   _loggroup->addTab(_log,tr("Log"));
+  _loggroup->addTab(_mqttLog,tr("MQTT Log"));
   _loggroup->addTab(_bncFigure,tr("Throughput"));
   _loggroup->addTab(_bncFigureLate,tr("Latency"));
   _loggroup->addTab(_bncFigurePPP,tr("PPP Plot"));
@@ -829,6 +860,23 @@ bncWindow::bncWindow() {
   oLayout->setRowStretch(8, 999);
 
   ogroup->setLayout(oLayout);
+
+  // MQTT Config
+  // ------------------
+  QGridLayout* mqttLayout = new QGridLayout;
+  mqttLayout->setColumnMinimumWidth(0,14*ww);
+  _mqttPortLineEdit->setMaximumWidth(9*ww);
+
+  mqttLayout->addWidget(new QLabel("MQTT Configuration.<br>"),0, 0, 1,50);
+  mqttLayout->addWidget(new QLabel("Host"),                      1, 0);
+  mqttLayout->addWidget(_mqttHostLineEdit,                             1, 1, 1, 10);
+  mqttLayout->addWidget(new QLabel("Port"),                      2, 0);
+  mqttLayout->addWidget(_mqttPortLineEdit,                             2, 1);
+  mqttLayout->addWidget(new QLabel("Topic"),                      3, 0);
+  mqttLayout->addWidget(_mqttTopicLineEdit,                             3, 1, 1, 10);
+  mqttLayout->setRowStretch(6, 999);
+
+  mqttConfiggroup->setLayout(mqttLayout);
 
   // RINEX Ephemeris
   // ---------------
@@ -1430,6 +1478,12 @@ bncWindow::bncWindow() {
   _rnxV2Priority->setWhatsThis(tr("<p>Specify a priority list of characters defining signal attributes as defined in RINEX Version 3. Priorities will be used to map observations with RINEX Version 3 attributes from incoming streams to Version 2. The underscore character '_' stands for undefined attributes. A question mark '?' can be used as wildcard which represents any one character.</p><p>Signal priorities can be specified as equal for all systems, as system specific or as system and freq. specific. For example: </li><ul><li>'CWPX_?' (General signal priorities valid for all GNSS) </li><li>'I:ABCX' (System specific signal priorities for NavIC) </li><li>'G:12&PWCSLX G:5&IQX R:12&PC R:3&IQX' (System and frequency specific signal priorities) </li></ul>Default is the following priority list 'G:12&PWCSLX G:5&IQX R:12&PC R:3&IQX R:46&ABX E:16&BCXZ E:578&IQX J:1&SLXCZ J:26&SLX J:5&IQX C:267&IQX C:18&DPX I:ABCX S:1&C S:5&IQX'. <i>[key: rnxV2Priority]</i></p>"));
   _rnxVersComboBox->setWhatsThis(tr("<p>Select the format for RINEX Observation files. <i>[key: rnxVersion]</i></p>"));
 
+  // WhatsThis, MQTT Config
+  // -----------------------------
+  _mqttHostLineEdit->setWhatsThis(tr("<p>Specify the host name or IP address of the MQTT broker.</p><p>BNC can send a MQTT Meassage. <i>[key: mqttHost]</i></p>"));
+  _mqttPortLineEdit->setWhatsThis(tr("<p>Specify the port number of the MQTT broker.</p><p>BNC can send a MQTT Meassage. <i>[key: mqttPort]</i></p>"));
+  _mqttTopicLineEdit->setWhatsThis(tr("<p>Specify the topic for MQTT Meassages.</p><p>BNC can send a MQTT Meassage. <i>[key: mqttTopic]</i></p>"));
+
   // WhatsThis, RINEX Ephemeris
   // --------------------------
   _ephPathLineEdit->setWhatsThis(tr("<p>Specify the path for saving Broadcast Ephemeris data as RINEX Navigation files.</p><p>If the specified directory does not exist, BNC will not create RINEX Navigation files. <i>[key: ephPath]</i></p>"));
@@ -1670,6 +1724,7 @@ bncWindow::bncWindow() {
   // WhatsThis, Log Canvas
   // ---------------------
   _log->setWhatsThis(tr("<p>Records of BNC's activities are shown in the 'Log' tab. The message log covers the communication status between BNC and the Ntrip Broadcaster as well as problems that occur in the communication link, stream availability, stream delay, stream conversion etc.</p>"));
+  _mqttLog->setWhatsThis(tr("<p>Records of MQTT activities are shown in the 'MQTT Log' tab.</p>"));
   _bncFigure->setWhatsThis(tr("<p>The bandwith consumption per stream is shown in the 'Throughput' tab in bits per second (bps) or kilobits per second (kbps).</p>"));
   _bncFigureLate->setWhatsThis(tr("<p>The individual latency of observations of incoming streams is shown in the 'Latency' tab. Streams not carrying observations (e.g. those providing only Broadcast Ephemeris) remain unconsidered.</p><p>Note that the calculation of correct latencies requires the clock of the host computer to be properly synchronized.</p>"));
   _bncFigurePPP->setWhatsThis(tr("<p>PPP time series of North (red), East (green) and Up (blue) displacements are shown in the 'PPP Plot' tab when the corresponding option is selected.</p><p>Values are referred to an XYZ a priori coordinate. The sliding PPP time series window covers the period of the latest 5 minutes.</p>"));
@@ -1729,6 +1784,10 @@ bncWindow::~bncWindow() {
   delete _rnxScrpLineEdit;
   delete _rnxVersComboBox;
   delete _rnxV2Priority;
+  delete _mqttHostLineEdit;
+  delete _mqttPortLineEdit;
+  delete _mqttTopicLineEdit;
+  delete _mqttLog;
   delete _ephPathLineEdit;
   //delete _ephFilePerStation;
   delete _ephIntrComboBox;
@@ -2199,6 +2258,12 @@ void bncWindow::saveOptions() {
   settings.setValue("rnxScript",    _rnxScrpLineEdit->text());
   settings.setValue("rnxV2Priority",_rnxV2Priority->text());
   settings.setValue("rnxVersion",   _rnxVersComboBox->currentText());
+
+//MQTT Config
+  settings.setValue("mqttHost",     _mqttHostLineEdit->text());
+  settings.setValue("mqttPort",     _mqttPortLineEdit->text());
+  settings.setValue("mqttTopic",    _mqttTopicLineEdit->text());
+
 // RINEX Ephemeris
   settings.setValue("ephPath",       _ephPathLineEdit->text());
   settings.setValue("ephIntr",       _ephIntrComboBox->currentText());
@@ -2382,6 +2447,8 @@ void bncWindow::startRealTime() {
   // -------------
   if (!_rnxPathLineEdit->text().isEmpty())
       BNC_CORE->slotMessage("Panel 'RINEX Observations' active", true);
+  if  (!_mqttHostLineEdit->text().isEmpty()&& !_mqttPortLineEdit->text().isEmpty()&&  !_mqttTopicLineEdit->text().isEmpty())
+      BNC_CORE->slotMessage("Panel 'MQTT' active", true);
   if (!_ephPathLineEdit->text().isEmpty())
       BNC_CORE->slotMessage("Panel 'RINEX Ephemeris' active", true);
   if (!_corrPathLineEdit->text().isEmpty())
@@ -2483,6 +2550,7 @@ void bncWindow::slotSelectionChanged() {
 void bncWindow::slotWindowMessage(const QByteArray msg, bool showOnScreen) {
   if (showOnScreen ) {
     _log->append(QDateTime::currentDateTime().toUTC().toString("yy-MM-dd hh:mm:ss ") + msg);
+    _mqttLog->append(QDateTime::currentDateTime().toUTC().toString("yy-MM-dd hh:mm:ss ") + msg);
   }
 }
 
@@ -2704,6 +2772,12 @@ void bncWindow::slotBncTextChanged(){
     if (enable && !enable1) {
       enableWidget(false, _rnxV2Priority);
     }
+  }
+
+  // MQTT Config
+  // ----------------------------------
+  if (sender() == 0 || sender() == _mqttHostLineEdit){
+
   }
 
   // RINEX Observations, Signal Priority

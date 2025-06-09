@@ -142,6 +142,9 @@ class bncWindow : public QMainWindow {
     QLineEdit* _ephOutPortLineEdit;
     QLineEdit* _corrPortLineEdit;
     QLineEdit* _rnxPathLineEdit;
+    QLineEdit* _mqttHostLineEdit;
+    QLineEdit* _mqttPortLineEdit;
+    QLineEdit* _mqttTopicLineEdit;
     QLineEdit* _rnxSkelPathLineEdit;
     QLineEdit* _ephPathLineEdit;
     QLineEdit* _corrPathLineEdit;
@@ -207,6 +210,7 @@ class bncWindow : public QMainWindow {
     QComboBox*  _onTheFlyComboBox;
 
     QTextEdit*  _log;
+    QTextEdit*  _mqttLog;
 
     QWidget*    _canvas;
     QTabWidget* _aogroup;
