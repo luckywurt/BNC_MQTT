@@ -1,3 +1,13 @@
+## IDE和编译文件
 .idea/
-/cmake-build-debug
+.vscode/
 /build
+/cmake-build-debug
+/cmake-build-release
+/mqtt_test/cmake-build-debug/
+
+## 测试配置&其他文件
+/Example_Configs
+/temp
+
+
