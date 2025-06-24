@@ -12,7 +12,7 @@ set(CMAKE_AUTOUIC ON)
 set(CMAKE_PREFIX_PATH "C:/ProgramData/Qt/5.15.2/mingw81_64")
 
 # 查找 Qt 模块
-find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets Svg PrintSupport Network SerialPort Concurrent OpenGL)
+find_package(Qt5 REQUIRED COMPONENTS Core Gui Widgets Svg PrintSupport Network SerialPort Concurrent OpenGL Mqtt)
 
 # ================= 依赖库：newmat =================
 file(GLOB_RECURSE NEWMAT_SRC newmat/*.cpp)
@@ -90,7 +90,12 @@ add_executable(bnc
         ${SRC_QRC}
         ${BNC_RESOURCES}
         ${PPP_SRC}
-        ${PPP_HDR})
+        ${PPP_HDR}
+        src/MQTT/mqttClient.cpp
+        src/MQTT/mqttClient.h
+        src/MQTT/jsonMessage.cpp
+        src/MQTT/jsonMessage.h
+)
 
 # 头文件路径配置
 include_directories(
@@ -123,6 +128,7 @@ target_link_libraries(bnc
         Qt5::SerialPort
         Qt5::Concurrent
         Qt5::OpenGL
+        Qt5::Mqtt
         newmat
         qwt
         qwtpolar)
@@ -146,10 +152,24 @@ if(WIN32 AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
                 "${QT_INSTALL_PATH}/plugins/platforms/qwindows.dll"
                 "$<TARGET_FILE_DIR:bnc>/plugins/platforms/")
     endif()
-    foreach(QT_LIB Core Gui Widgets Svg PrintSupport Network SerialPort Concurrent OpenGL)
+    foreach(QT_LIB Core Gui Widgets Svg PrintSupport Network SerialPort Concurrent OpenGL Mqtt)
         add_custom_command(TARGET bnc POST_BUILD
                 COMMAND ${CMAKE_COMMAND} -E copy
                 "${QT_INSTALL_PATH}/bin/Qt5${QT_LIB}.dll"
                 "$<TARGET_FILE_DIR:bnc>")
     endforeach()
 endif()
+
+#
+## 测试代码
+## 添加 src/MQTT 目录中的源文件
+#file(GLOB_RECURSE MQTT_SRC src/MQTT/*.cpp)
+#file(GLOB_RECURSE MQTT_HDR src/MQTT/*.h)
+## 创建静态库
+#add_library(mqttlib STATIC ${MQTT_SRC} ${MQTT_HDR})
+#target_include_directories(mqttlib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/MQTT)
+#target_link_libraries(mqttlib PUBLIC Qt5::Core Qt5::Mqtt )
+#
+## 创建测试可执行文件并链接 mqttlib
+#add_executable(test_jsonmessage test/test_jsonmessage.cpp)
+#target_link_libraries(test_jsonmessage PRIVATE mqttlib Qt5::Mqtt)

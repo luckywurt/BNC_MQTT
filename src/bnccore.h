@@ -29,6 +29,7 @@
 #include "bnccaster.h"
 #include "bncrawfile.h"
 #include "bncephuser.h"
+#include "mqtt/jsonMessage.h"
 
 class bncComb;
 class bncTableItem;
@@ -75,6 +76,9 @@ friend class bncSettings;
 
  public slots:
   void slotMessage(QByteArray msg, bool showOnScreen);
+ // MQTT消息新增
+  void slotMQTTMessage(QByteArray msg, bool showOnScreen);
+  void slotJsonMessage(QByteArray msg);
   void slotNewGPSEph(t_ephGPS);
   void slotNewGlonassEph(t_ephGlo);
   void slotNewGalileoEph(t_ephGal);
@@ -89,6 +93,8 @@ friend class bncSettings;
 
  signals:
   void newMessage(QByteArray msg, bool showOnScreen);
+ // MQTT消息新增
+  void newMQTTMessage(QByteArray msg, bool showOnScreen);
   void newGPSEph(t_ephGPS eph);
   void newGlonassEph(t_ephGlo eph);
   void newSBASEph(t_ephSBAS eph);
@@ -126,6 +132,8 @@ friend class bncSettings;
   int                    _logFileFlag;
   QMutex                 _mutex;
   QMutex                 _mutexMessage;
+ // MQTT消息新增
+  QMutex                 _mutexMQTTMessage;
   QString                _ephPath;
   QString                _ephFileNameGPS;
   int                    _rinexVers;

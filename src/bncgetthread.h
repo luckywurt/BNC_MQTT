@@ -42,111 +42,120 @@ class GPSDecoder;
 class QextSerialPort;
 class latencyChecker;
 
-class bncGetThread : public QThread {
- Q_OBJECT
+class bncGetThread : public QThread
+{
+    Q_OBJECT
 
- public:
-   bncGetThread(bncRawFile* rawFile);
-   bncGetThread(const QUrl& mountPoint,
-                const QByteArray& format,
-                const QByteArray& latitude,
-                const QByteArray& longitude,
-                const QByteArray& nmea,
-                const QByteArray& ntripVersion);
+public:
+    bncGetThread(bncRawFile* rawFile);
+    bncGetThread(const QUrl& mountPoint,
+                 const QByteArray& format,
+                 const QByteArray& latitude,
+                 const QByteArray& longitude,
+                 const QByteArray& nmea,
+                 const QByteArray& ntripVersion);
 
-   bncNetQuery::queryStatus queryStatus() {
-     if (_query) {
-       return _query->status();
-     }
-     else {
-       return bncNetQuery::init;
-     }
-   }
+    bncNetQuery::queryStatus queryStatus() {
+        if (_query) {
+            return _query->status();
+        }
+        else {
+            return bncNetQuery::init;
+        }
+    }
 
- protected:
-   ~bncGetThread();
+protected:
+    ~bncGetThread();
 
- public:
-   void terminate();
+public:
+    void terminate();
 
-   QByteArray staID() const {return _staID;}
-   QUrl       mountPoint() const {return _mountPoint;}
-   QByteArray latitude() const {return _latitude;}
-   QByteArray longitude() const {return _longitude;}
-   QByteArray ntripVersion() const {return _ntripVersion;}
+    QByteArray staID() const { return _staID; }
+    QUrl mountPoint() const { return _mountPoint; }
+    QByteArray latitude() const { return _latitude; }
+    QByteArray longitude() const { return _longitude; }
+    QByteArray ntripVersion() const { return _ntripVersion; }
 
- signals:
-   void newBytes(QByteArray staID, double nbyte);
-   void newRawData(QByteArray staID, QByteArray data);
-   void newLatency(QByteArray staID, double clate);
-   void newObs(QByteArray staID, QList<t_satObs> obsList);
-   void newAntCrd(QByteArray staID, double xx, double yy, double zz,
-                  double hh, QByteArray antType);
-   void newMessage(QByteArray msg, bool showOnScreen);
-   void newRTCMMessage(QByteArray staID, int msgID);
-   void getThreadFinished(QByteArray staID);
+signals:
+    void newBytes(QByteArray staID, double nbyte);
+    void newRawData(QByteArray staID, QByteArray data);
+    void newLatency(QByteArray staID, double clate);
+    void newObs(QByteArray staID, QList<t_satObs> obsList);
+    void newAntCrd(QByteArray staID, double xx, double yy, double zz,
+                   double hh, QByteArray antType);
+    void newMessage(QByteArray msg, bool showOnScreen);
+    void newRTCMMessage(QByteArray staID, int msgID);
+    void getThreadFinished(QByteArray staID);
 
- public:
-   virtual void run();
+    // MQTT消息新增
+    void sigUpdateLatency(const QByteArray& staID, double latency);
+    void sigUpdateThroughput(const QByteArray& staID, int bytes);
+    void sigStaTimeout(const QByteArray& staID);
+    void sigStaDisconnected(const QByteArray& staID);
+    void sigStaError(const QByteArray& staID, const QString& reason);
 
- public slots:
-   void slotNewNMEAstr(QByteArray staID, QByteArray str);
+public:
+    virtual void run();
 
- private slots:
-   void slotSerialReadyRead();
-   void slotNewNMEAConnection();
+public slots:
+    void slotNewNMEAstr(QByteArray staID, QByteArray str);
 
- private:
-   enum t_serialNMEA {NO_NMEA, MANUAL_NMEA, AUTO_NMEA};
-   t_irc        initDecoder();
-   GPSDecoder* decoder();
+private slots:
+    void slotSerialReadyRead();
+    void slotNewNMEAConnection();
 
-   void  initialize();
-   t_irc tryReconnect();
-   void  miscScanRTCM();
+private:
+    enum t_serialNMEA { NO_NMEA, MANUAL_NMEA, AUTO_NMEA };
 
-   QMap<QString, GPSDecoder*> _decodersRaw;
-   GPSDecoder*                _decoder;
-   bncNetQuery*               _query;
-   QUrl                       _mountPoint;
-   QByteArray                 _staID;
-   QByteArray                 _format;
-   QByteArray                 _latitude;
-   QByteArray                 _longitude;
-   QByteArray                 _height;
-   QByteArray                 _nmea;
-   QByteArray                 _ntripVersion;
-   QByteArray                 _manualNMEAString;
-   QDateTime                  _lastNMEA;
-   int                        _NMEASampl;
-   int                        _nextSleep;
-   int                        _iMount;
-   int                        _ssrEpoch;
-   bncRawFile*                _rawFile;
-   QextSerialPort*            _serialPort;
-   bool                       _isToBeDeleted;
-   bool                       _rtcmObs;
-   bool                       _rtcmSsrOrb;
-   bool                       _rtcmSsrClk;
-   bool                       _rtcmSsrOrbClk;
-   bool                       _rtcmSsrCbi;
-   bool                       _rtcmSsrPbi;
-   bool                       _rtcmSsrVtec;
-   bool                       _rtcmSsrUra;
-   bool                       _rtcmSsrHr;
-   bool                       _rtcmSsrIgs;
-   latencyChecker*            _latencyChecker;
-   QString                    _miscMount;
-   QFile*                     _serialOutFile;
-   t_serialNMEA               _serialNMEA;
-   bool                       _rawOutput;
-   bool                       _latencycheck;
-   QMap<QString, bncTime>     _prnLastEpo;
-   QMap<char, QVector<QString> > _rnxTypes;
-   QStringList                _gloSlots;
-   QList<QTcpSocket*>*        _nmeaSockets;
-   QMap<QByteArray, int>      _nmeaPortsMap;
-   QTcpServer*                _nmeaServer;
+    t_irc initDecoder();
+    GPSDecoder* decoder();
+
+    void initialize();
+    t_irc tryReconnect();
+    void miscScanRTCM();
+
+    QMap<QString, GPSDecoder*> _decodersRaw;
+    GPSDecoder* _decoder;
+    bncNetQuery* _query;
+    QUrl _mountPoint;
+    QByteArray _staID;
+    QByteArray _format;
+    QByteArray _latitude;
+    QByteArray _longitude;
+    QByteArray _height;
+    QByteArray _nmea;
+    QByteArray _ntripVersion;
+    QByteArray _manualNMEAString;
+    QDateTime _lastNMEA;
+    int _NMEASampl;
+    int _nextSleep;
+    int _iMount;
+    int _ssrEpoch;
+    bncRawFile* _rawFile;
+    QextSerialPort* _serialPort;
+    bool _isToBeDeleted;
+    bool _rtcmObs;
+    bool _rtcmSsrOrb;
+    bool _rtcmSsrClk;
+    bool _rtcmSsrOrbClk;
+    bool _rtcmSsrCbi;
+    bool _rtcmSsrPbi;
+    bool _rtcmSsrVtec;
+    bool _rtcmSsrUra;
+    bool _rtcmSsrHr;
+    bool _rtcmSsrIgs;
+    latencyChecker* _latencyChecker;
+    QString _miscMount;
+    QFile* _serialOutFile;
+    t_serialNMEA _serialNMEA;
+    bool _rawOutput;
+    bool _latencycheck;
+    QMap<QString, bncTime> _prnLastEpo;
+    QMap<char, QVector<QString>> _rnxTypes;
+    QStringList _gloSlots;
+    QList<QTcpSocket*>* _nmeaSockets;
+    QMap<QByteArray, int> _nmeaPortsMap;
+    QTcpServer* _nmeaServer;
 };
 
 #endif

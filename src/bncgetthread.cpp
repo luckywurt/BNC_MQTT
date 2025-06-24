@@ -66,6 +66,7 @@
 #include "bncnetqueryudp0.h"
 #include "bncnetquerys.h"
 #include "bncsettings.h"
+#include "bncwindow.h"
 #include "latencychecker.h"
 #include "upload/bncrtnetdecoder.h"
 #include "RTCM/RTCM2Decoder.h"
@@ -495,10 +496,14 @@ void bncGetThread::run() {
         }
         emit(newMessage(_staID + ": Data timeout, reconnecting", true));
         msleep(10000); //sleep 10 sec, G. Weber
+        // MQTT消息新增
+        emit sigStaTimeout(_staID);
         continue;
       } else {
         emit newBytes(_staID, nBytes);
         emit newRawData(_staID, data);
+        // MQTT消息新增
+        emit sigUpdateThroughput(_staID, int(nBytes));
       }
 
       // Output Data
@@ -613,6 +618,8 @@ void bncGetThread::run() {
           _latencyChecker->checkObsLatency(decoder()->_obsList);
         }
         emit newLatency(_staID, _latencyChecker->currentLatency());
+        // MQTT消息新增
+        emit sigUpdateLatency(_staID, _latencyChecker->currentLatency());
       }
       miscScanRTCM();
 
@@ -672,26 +679,38 @@ void bncGetThread::run() {
     }
     catch (Exception& exc) {
       emit(newMessage(_staID + " " + exc.what(), true));
+      // MQTT消息新增
+      emit sigStaError(_staID, QString(exc.what()));
       _isToBeDeleted = true;
     }
     catch (std::exception& exc) {
       emit(newMessage(_staID + " " + exc.what(), true));
+      // MQTT消息新增
+      emit sigStaError(_staID, QString(exc.what()));
       _isToBeDeleted = true;
     }
     catch (const string& error) {
       emit(newMessage(_staID + " ERROR: " + error.c_str(), true));
+      // MQTT消息新增
+      emit sigStaError(_staID, QString(error.c_str()));
       _isToBeDeleted = true;
     }
     catch (const char* error) {
       emit(newMessage(_staID + " ERROR: " + error, true));
+      // MQTT消息新增
+      emit sigStaError(_staID, QString(error));
       _isToBeDeleted = true;
     }
     catch (QString error) {
       emit(newMessage(_staID + " ERROR: " + error.toStdString().c_str(), true));
+      // MQTT消息新增
+      emit sigStaError(_staID, error);
       _isToBeDeleted = true;
     }
     catch (...) {
       emit(newMessage(_staID + " bncGetThread: unknown exception", true));
+      // MQTT消息新增
+      emit sigStaError(_staID, QString("bncGetThread: unknown exception"));
       _isToBeDeleted = true;
     }
   }
@@ -783,6 +802,8 @@ t_irc bncGetThread::tryReconnect() {
     }
 
     if (_query->status() != bncNetQuery::running) {
+      // MQTT消息新增
+      emit sigStaDisconnected(_staID);
       return failure;
     }
   }

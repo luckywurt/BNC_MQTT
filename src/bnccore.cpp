@@ -53,6 +53,7 @@
 #include "rinex/rnxnavfile.h"
 #include "pppMain.h"
 #include "combination/bnccomb.h"
+#include "mqtt/jsonMessage.h"
 
 using namespace std;
 
@@ -155,6 +156,20 @@ void t_bncCore::slotMessage(QByteArray msg, bool showOnScreen) {
 
   messagePrivate(msg);
   emit newMessage(msg, showOnScreen);
+}
+
+// MQTT消息新增 转发消息到界面
+void t_bncCore::slotMQTTMessage(QByteArray msg, bool showOnScreen) {
+  if (msg.isEmpty()) {
+    return;
+  }
+  QMutexLocker locker(&_mutexMQTTMessage);
+
+  emit newMQTTMessage(msg, showOnScreen);
+}
+
+void t_bncCore::slotJsonMessage(QByteArray msg) {
+  // slotMessage(msg, true);
 }
 
 // Write a Program Message (private, no lock)

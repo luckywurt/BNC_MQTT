@@ -34,6 +34,8 @@
 #include "bncgetthread.h"
 #include "bnccaster.h"
 #include "pppWidgets.h"
+#include "mqtt/MqttClient.h"
+#include "mqtt/jsonMessage.h"
 
 class bncAboutDlg : public QDialog {
   Q_OBJECT
@@ -73,6 +75,8 @@ class bncWindow : public QMainWindow {
 
   private slots:
     void slotWindowMessage(const QByteArray msg, bool showOnScreen);
+    void slotMQTTLogMessage(const QByteArray msg, bool showOnScreen);
+    void slotPublishMQTTMsg(const QString &topic);
     void slotHelp();
     void slotAbout();
     void slotFlowchart();
@@ -112,6 +116,8 @@ class bncWindow : public QMainWindow {
     void enableWidget(bool enable, QWidget* widget);
     void startRealTime();
     void enableStartStop();
+    void startMQTTConnect();
+    void stopMQTTConnect();
 
     QMenu*     _menuHlp;
     QMenu*     _menuFile;
@@ -142,9 +148,15 @@ class bncWindow : public QMainWindow {
     QLineEdit* _ephOutPortLineEdit;
     QLineEdit* _corrPortLineEdit;
     QLineEdit* _rnxPathLineEdit;
+    // MQTT消息新增
     QLineEdit* _mqttHostLineEdit;
     QLineEdit* _mqttPortLineEdit;
     QLineEdit* _mqttTopicLineEdit;
+    QLineEdit* _mqttUserLineEdit;
+    QLineEdit* _mqttPwdLineEdit;
+    QLineEdit* _mqttNodeIdLineEdit;
+    QLineEdit* _mqttSendIntervalLineEdit;
+
     QLineEdit* _rnxSkelPathLineEdit;
     QLineEdit* _ephPathLineEdit;
     QLineEdit* _corrPathLineEdit;
@@ -263,6 +275,10 @@ class bncWindow : public QMainWindow {
     QList<bncGetThread*> _threads;
 
     t_pppWidgets         _pppWidgets;
+
+    // MQTT消息新增
+    MqttClient           *_mqttClient;
+    JsonMessage          *_jsonMessage;
 };
 
 #ifdef GNSSCENTER_PLUGIN

@@ -107,6 +107,8 @@
 #include "rinex/reqcedit.h"
 #include "rinex/reqcanalyze.h"
 #include "orbComp/sp3Comp.h"
+#include "mqtt/MqttClient.h"
+#include "mqtt/jsonMessage.h"
 #ifdef QT_WEBENGINE
 #  include "map/bncmapwin.h"
 #endif
@@ -126,6 +128,9 @@ bncWindow::bncWindow() {
   _bncFigure     = new bncFigure(this);
   _bncFigureLate = new bncFigureLate(this);
   _bncFigurePPP  = new bncFigurePPP(this);
+  // MQTT消息新增
+  _mqttClient    = new MqttClient(this);
+  _jsonMessage   = new JsonMessage(this);
 
   connect(BNC_CORE, SIGNAL(newPosition(QByteArray, bncTime, QVector<double>)),
           _bncFigurePPP, SLOT(slotNewPosition(QByteArray, bncTime, QVector<double>)));
@@ -152,6 +157,11 @@ bncWindow::bncWindow() {
 
   connect(BNC_CORE, SIGNAL(newMessage(QByteArray,bool)),
           this, SLOT(slotWindowMessage(QByteArray,bool)));
+
+  // MQTT消息新增
+  // 全局消息
+  connect(BNC_CORE,SIGNAL(newMQTTMessage(QByteArray,bool)),
+  this,SLOT(slotMQTTLogMessage(QByteArray,bool)));
 
   // Create Actions
   // --------------
@@ -276,11 +286,17 @@ bncWindow::bncWindow() {
   connect(_rnxSkelPathLineEdit, SIGNAL(textChanged(const QString &)), this, SLOT(slotBncTextChanged()));
   connect(_rnxVersComboBox, SIGNAL(currentIndexChanged(const QString &)), this, SLOT(slotBncTextChanged()));
 
+  // MQTT消息新增
   // MQTT Config Options
   // --------------------------
   _mqttHostLineEdit = new QLineEdit(settings.value("mqttHost").toString());
   _mqttPortLineEdit = new QLineEdit(settings.value("mqttPort").toString());
   _mqttTopicLineEdit = new QLineEdit(settings.value("mqttTopic").toString());
+  _mqttUserLineEdit = new QLineEdit(settings.value("mqttUser").toString());
+  _mqttPwdLineEdit = new QLineEdit(settings.value("mqttPwd").toString());
+  _mqttNodeIdLineEdit = new QLineEdit(settings.value("mqttNodeId").toString());
+  _mqttSendIntervalLineEdit = new QLineEdit(settings.value("mqttSendInterval").toString());
+
 
   // RINEX Ephemeris Options
   // -----------------------
@@ -493,6 +509,7 @@ bncWindow::bncWindow() {
   _log->setFont(msFont);
   _log->document()->setMaximumBlockCount(1000);
 
+  // MQTT消息新增
   //MQTT Log
   _mqttLog = new QTextEdit();
   _mqttLog->setReadOnly(true);
@@ -754,10 +771,12 @@ bncWindow::bncWindow() {
   QWidget* cmbgroup = new QWidget();
   QWidget* uploadgroup = new QWidget();
   QWidget* uploadEphgroup = new QWidget();
+  // MQTT消息新增
   QWidget* mqttConfiggroup = new QWidget();
   _aogroup->addTab(pgroup,tr("Network"));
   _aogroup->addTab(ggroup,tr("General"));
   _aogroup->addTab(ogroup,tr("RINEX Observations"));
+  // MQTT消息新增
   _aogroup->addTab(mqttConfiggroup,tr("MQTT Config"));
   _aogroup->addTab(egroup,tr("RINEX Ephemeris"));
   _aogroup->addTab(reqcgroup,tr("RINEX Editing && QC"));
@@ -779,6 +798,7 @@ bncWindow::bncWindow() {
   // -------
   _loggroup = new QTabWidget();
   _loggroup->addTab(_log,tr("Log"));
+  // MQTT消息新增
   _loggroup->addTab(_mqttLog,tr("MQTT Log"));
   _loggroup->addTab(_bncFigure,tr("Throughput"));
   _loggroup->addTab(_bncFigureLate,tr("Latency"));
@@ -861,20 +881,35 @@ bncWindow::bncWindow() {
 
   ogroup->setLayout(oLayout);
 
+  // MQTT消息新增
   // MQTT Config
   // ------------------
   QGridLayout* mqttLayout = new QGridLayout;
   mqttLayout->setColumnMinimumWidth(0,14*ww);
   _mqttPortLineEdit->setMaximumWidth(9*ww);
 
-  mqttLayout->addWidget(new QLabel("MQTT Configuration.<br>"),0, 0, 1,50);
+  mqttLayout->addWidget(new QLabel("MQTT 客户端连接配置:<br>"),0, 0, 1, 50);
   mqttLayout->addWidget(new QLabel("Host"),                      1, 0);
-  mqttLayout->addWidget(_mqttHostLineEdit,                             1, 1, 1, 10);
+  mqttLayout->addWidget(_mqttHostLineEdit,                      1, 1, 1, 10);
   mqttLayout->addWidget(new QLabel("Port"),                      2, 0);
-  mqttLayout->addWidget(_mqttPortLineEdit,                             2, 1);
-  mqttLayout->addWidget(new QLabel("Topic"),                      3, 0);
-  mqttLayout->addWidget(_mqttTopicLineEdit,                             3, 1, 1, 10);
-  mqttLayout->setRowStretch(6, 999);
+  mqttLayout->addWidget(_mqttPortLineEdit,                      2, 1, 1, 10);
+  mqttLayout->addWidget(new QLabel("Topic"),                     3, 0);
+  mqttLayout->addWidget(_mqttTopicLineEdit,                     3, 1, 1, 10);
+  mqttLayout->addWidget(new QLabel("User"),                      4, 0);
+  mqttLayout->addWidget(_mqttUserLineEdit,                       4, 1, 1, 10);
+  mqttLayout->addWidget(new QLabel("Password"),                  5, 0);
+  mqttLayout->addWidget(_mqttPwdLineEdit,                        5, 1, 1, 10);
+  mqttLayout->addWidget(new QLabel("Node ID"),                   6, 0);
+  mqttLayout->addWidget(_mqttNodeIdLineEdit,                     6, 1, 1, 10);
+  mqttLayout->addWidget(new QLabel("MQTT Message Send Interval"),7, 0);
+  mqttLayout->addWidget(_mqttSendIntervalLineEdit,               7, 1, 1, 10);
+  mqttLayout->setRowStretch(8, 999);
+  // 设置密码框为密码模式
+  _mqttPwdLineEdit->setEchoMode(QLineEdit::Password);
+
+  // 输入验证器
+  QIntValidator* portValidator = new QIntValidator(1, 65535, this);
+  _mqttPortLineEdit->setValidator(portValidator);
 
   mqttConfiggroup->setLayout(mqttLayout);
 
@@ -1478,11 +1513,16 @@ bncWindow::bncWindow() {
   _rnxV2Priority->setWhatsThis(tr("<p>Specify a priority list of characters defining signal attributes as defined in RINEX Version 3. Priorities will be used to map observations with RINEX Version 3 attributes from incoming streams to Version 2. The underscore character '_' stands for undefined attributes. A question mark '?' can be used as wildcard which represents any one character.</p><p>Signal priorities can be specified as equal for all systems, as system specific or as system and freq. specific. For example: </li><ul><li>'CWPX_?' (General signal priorities valid for all GNSS) </li><li>'I:ABCX' (System specific signal priorities for NavIC) </li><li>'G:12&PWCSLX G:5&IQX R:12&PC R:3&IQX' (System and frequency specific signal priorities) </li></ul>Default is the following priority list 'G:12&PWCSLX G:5&IQX R:12&PC R:3&IQX R:46&ABX E:16&BCXZ E:578&IQX J:1&SLXCZ J:26&SLX J:5&IQX C:267&IQX C:18&DPX I:ABCX S:1&C S:5&IQX'. <i>[key: rnxV2Priority]</i></p>"));
   _rnxVersComboBox->setWhatsThis(tr("<p>Select the format for RINEX Observation files. <i>[key: rnxVersion]</i></p>"));
 
+  // MQTT消息新增
   // WhatsThis, MQTT Config
   // -----------------------------
   _mqttHostLineEdit->setWhatsThis(tr("<p>Specify the host name or IP address of the MQTT broker.</p><p>BNC can send a MQTT Meassage. <i>[key: mqttHost]</i></p>"));
   _mqttPortLineEdit->setWhatsThis(tr("<p>Specify the port number of the MQTT broker.</p><p>BNC can send a MQTT Meassage. <i>[key: mqttPort]</i></p>"));
   _mqttTopicLineEdit->setWhatsThis(tr("<p>Specify the topic for MQTT Meassages.</p><p>BNC can send a MQTT Meassage. <i>[key: mqttTopic]</i></p>"));
+  _mqttUserLineEdit->setWhatsThis(tr("<p>Specify the username for MQTT broker authentication.</p>""<p>Leave empty if no authentication is required.</p>""<i>[key: mqttUser]</i></p>"));
+  _mqttPwdLineEdit->setWhatsThis(tr("<p>Specify the password for MQTT broker authentication.</p>""<p>Leave empty if no authentication is required.</p>""<i>[key: mqttPwd]</i></p>"));
+  _mqttNodeIdLineEdit->setWhatsThis(tr("<p>Specify a unique node identifier for MQTT client.</p>""<p>This ID must be unique across all MQTT clients in the network.</p>""<i>[key: mqttNodeId]</i></p>"));
+  _mqttSendIntervalLineEdit->setWhatsThis("");
 
   // WhatsThis, RINEX Ephemeris
   // --------------------------
@@ -1724,6 +1764,7 @@ bncWindow::bncWindow() {
   // WhatsThis, Log Canvas
   // ---------------------
   _log->setWhatsThis(tr("<p>Records of BNC's activities are shown in the 'Log' tab. The message log covers the communication status between BNC and the Ntrip Broadcaster as well as problems that occur in the communication link, stream availability, stream delay, stream conversion etc.</p>"));
+  // MQTT消息新增
   _mqttLog->setWhatsThis(tr("<p>Records of MQTT activities are shown in the 'MQTT Log' tab.</p>"));
   _bncFigure->setWhatsThis(tr("<p>The bandwith consumption per stream is shown in the 'Throughput' tab in bits per second (bps) or kilobits per second (kbps).</p>"));
   _bncFigureLate->setWhatsThis(tr("<p>The individual latency of observations of incoming streams is shown in the 'Latency' tab. Streams not carrying observations (e.g. those providing only Broadcast Ephemeris) remain unconsidered.</p><p>Note that the calculation of correct latencies requires the clock of the host computer to be properly synchronized.</p>"));
@@ -1784,9 +1825,16 @@ bncWindow::~bncWindow() {
   delete _rnxScrpLineEdit;
   delete _rnxVersComboBox;
   delete _rnxV2Priority;
+  // MQTT消息新增
+  delete _mqttClient;
+  delete _jsonMessage;
   delete _mqttHostLineEdit;
   delete _mqttPortLineEdit;
   delete _mqttTopicLineEdit;
+  delete _mqttUserLineEdit;
+  delete _mqttPwdLineEdit;
+  delete _mqttNodeIdLineEdit;
+  delete _mqttSendIntervalLineEdit;
   delete _mqttLog;
   delete _ephPathLineEdit;
   //delete _ephFilePerStation;
@@ -2259,10 +2307,15 @@ void bncWindow::saveOptions() {
   settings.setValue("rnxV2Priority",_rnxV2Priority->text());
   settings.setValue("rnxVersion",   _rnxVersComboBox->currentText());
 
+// MQTT消息新增
 //MQTT Config
   settings.setValue("mqttHost",     _mqttHostLineEdit->text());
   settings.setValue("mqttPort",     _mqttPortLineEdit->text());
   settings.setValue("mqttTopic",    _mqttTopicLineEdit->text());
+  settings.setValue("mqttUser",     _mqttUserLineEdit->text());
+  settings.setValue("mqttPwd",    _mqttPwdLineEdit->text());
+  settings.setValue("mqttNodeId",_mqttNodeIdLineEdit->text());
+  settings.setValue("mqttSendInterval",_mqttSendIntervalLineEdit->text());
 
 // RINEX Ephemeris
   settings.setValue("ephPath",       _ephPathLineEdit->text());
@@ -2413,6 +2466,9 @@ void bncWindow::slotStart() {
   else {
     startRealTime();
     BNC_CORE->startPPP();
+
+    // MQTT消息新增
+    startMQTTConnect();
   }
 }
 
@@ -2447,6 +2503,7 @@ void bncWindow::startRealTime() {
   // -------------
   if (!_rnxPathLineEdit->text().isEmpty())
       BNC_CORE->slotMessage("Panel 'RINEX Observations' active", true);
+  // MQTT消息新增
   if  (!_mqttHostLineEdit->text().isEmpty()&& !_mqttPortLineEdit->text().isEmpty()&&  !_mqttTopicLineEdit->text().isEmpty())
       BNC_CORE->slotMessage("Panel 'MQTT' active", true);
   if (!_ephPathLineEdit->text().isEmpty())
@@ -2496,6 +2553,71 @@ void bncWindow::startRealTime() {
   _casterEph = new bncEphUploadCaster();
 }
 
+// MQTT消息新增
+// Start MQTT Client
+///////////////////////////////////////////////////////////////////////////
+void bncWindow::startMQTTConnect() {
+  BNC_CORE->slotMQTTMessage("Start MQTT Message", true);
+  // 输出配置信息
+  BNC_CORE->slotMQTTMessage("MQTT config:", true);
+  BNC_CORE->slotMQTTMessage("MQTT Host:" + _mqttHostLineEdit->text().toUtf8(), true);
+  BNC_CORE->slotMQTTMessage("MQTT Port:" + _mqttPortLineEdit->text().toUtf8(), true);
+  BNC_CORE->slotMQTTMessage("MQTT Topic:" + _mqttTopicLineEdit->text().toUtf8(), true);
+  BNC_CORE->slotMQTTMessage("MQTT User:" + _mqttUserLineEdit->text().toUtf8(), true);
+  BNC_CORE->slotMQTTMessage("MQTT NodeId:" + _mqttNodeIdLineEdit->text().toUtf8(), true);
+  BNC_CORE->slotMQTTMessage("MQTT Message Send Interval(s):" + _mqttSendIntervalLineEdit->text().toUtf8(), true);
+
+  QString host = _mqttHostLineEdit->text().trimmed();
+  quint16 port = static_cast<quint16>(_mqttPortLineEdit->text().toUInt());
+  QString username = _mqttUserLineEdit->text().trimmed();
+  QString password = _mqttPwdLineEdit->text().trimmed();
+  QString clientId = _mqttNodeIdLineEdit->text().trimmed();
+  QString topic = _mqttTopicLineEdit->text().trimmed();
+  int messageInterval = _mqttSendIntervalLineEdit->text().toInt();
+
+  // MQTT日志消息连接
+  connect(_mqttClient, &MqttClient::mqttLogMessage, this, &bncWindow::slotMQTTLogMessage);
+  // MQTT服务器连接，自动订阅主题
+  connect(_mqttClient, &MqttClient::connected, this, [this]() {
+    _mqttClient->subscribeToTopic(_mqttTopicLineEdit->text().trimmed()); // 订阅到主题
+  });
+  // MQTT自动发送消息
+  connect(_mqttClient, &MqttClient::autoSendMsg, this, &bncWindow::slotPublishMQTTMsg);
+
+  //Debug代码
+  connect(_mqttClient, &MqttClient::messageReceived, [](const QString& topic, const QString& message) {
+    qDebug() << "收到消息 - 主题:" << topic << "内容:" << message;
+  });
+
+  // 设置连接参数
+  _mqttClient->setConnectionParameters(host, port, clientId);
+  // 用户认证，如果有
+  if (!username.isEmpty()) {
+    _mqttClient->setCredentials(username, password);
+  }
+  // 连接到MQTT服务器
+  _mqttClient->connectToHost();
+  // 设置自动发送消息间隔
+  _mqttClient->setSendMessageInterval(messageInterval * 1000);
+
+  // 消息存储对象初始化
+  //-----------------------------------
+  _jsonMessage->setNodeName(clientId);
+  // 设置站点列表
+  _jsonMessage->updateStationList();
+}
+
+void bncWindow::slotPublishMQTTMsg(const QString& topic) {
+  QString msg = _jsonMessage->getJsonMessage(true);
+  _mqttClient->publishMessage(topic, msg);
+}
+
+void bncWindow::stopMQTTConnect() {
+  BNC_CORE->slotMQTTMessage("MQTT Client stop!", true);
+  // 停止MQTT连接
+  _mqttClient->stopMqttClient();
+}
+
 // Retrieve Data
 ////////////////////////////////////////////////////////////////////////////
 void bncWindow::slotStop() {
@@ -2510,6 +2632,8 @@ void bncWindow::slotStop() {
     _runningRealTime = false;
     _runningPPP      = false;
     enableStartStop();
+    // MQTT消息新增
+    stopMQTTConnect();
   }
 }
 
@@ -2550,6 +2674,13 @@ void bncWindow::slotSelectionChanged() {
 void bncWindow::slotWindowMessage(const QByteArray msg, bool showOnScreen) {
   if (showOnScreen ) {
     _log->append(QDateTime::currentDateTime().toUTC().toString("yy-MM-dd hh:mm:ss ") + msg);
+  }
+}
+
+// MQTT消息新增
+// 展示MQTT服务输出
+void bncWindow::slotMQTTLogMessage(const QByteArray msg, bool showOnScreen) {
+  if (showOnScreen) {
     _mqttLog->append(QDateTime::currentDateTime().toUTC().toString("yy-MM-dd hh:mm:ss ") + msg);
   }
 }
@@ -2619,6 +2750,20 @@ void bncWindow::slotMountPointsRead(QList<bncGetThread*> threads) {
         connect(thread, SIGNAL(newBytes(QByteArray, double)), _bncFigure, SLOT(slotNewData(QByteArray, double)));
         disconnect(thread, SIGNAL(newLatency(QByteArray, double)), _bncFigureLate, SLOT(slotNewLatency(QByteArray, double)));
         connect(thread, SIGNAL(newLatency(QByteArray, double)), _bncFigureLate, SLOT(slotNewLatency(QByteArray, double)));
+
+        // MQTT消息新增
+        disconnect(thread, &bncGetThread::sigUpdateLatency, _jsonMessage, &JsonMessage::slotUpdateLatency);
+        disconnect(thread, &bncGetThread::sigUpdateThroughput, _jsonMessage, &JsonMessage::slotUpdateThroughput);
+        disconnect(thread, &bncGetThread::sigStaTimeout, _jsonMessage, &JsonMessage::slotOnStaTimeout);
+        disconnect(thread, &bncGetThread::sigStaDisconnected, _jsonMessage, &JsonMessage::slotOnStaDisconnected);
+        disconnect(thread, &bncGetThread::sigStaError, _jsonMessage, &JsonMessage::slotOnStaError);
+
+        connect(thread, &bncGetThread::sigUpdateLatency, _jsonMessage, &JsonMessage::slotUpdateLatency);
+        connect(thread, &bncGetThread::sigUpdateThroughput, _jsonMessage, &JsonMessage::slotUpdateThroughput);
+        connect(thread, &bncGetThread::sigStaTimeout, _jsonMessage, &JsonMessage::slotOnStaTimeout);
+        connect(thread, &bncGetThread::sigStaDisconnected, _jsonMessage, &JsonMessage::slotOnStaDisconnected);
+        connect(thread, &bncGetThread::sigStaError, _jsonMessage, &JsonMessage::slotOnStaError);
+
         break;
       }
     }
@@ -2774,6 +2919,7 @@ void bncWindow::slotBncTextChanged(){
     }
   }
 
+  // MQTT消息新增
   // MQTT Config
   // ----------------------------------
   if (sender() == 0 || sender() == _mqttHostLineEdit){
