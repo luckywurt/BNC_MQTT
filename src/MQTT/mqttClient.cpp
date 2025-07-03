@@ -3,6 +3,7 @@
 #include <QDebug>
 #include <QString>
 #include <QByteArray>
+#include <cmath>
 
 
 MqttClient::MqttClient(QObject* parent)
@@ -49,17 +50,20 @@ void MqttClient::setupSignalSlots() {
     connect(m_client, &QMqttClient::pingResponseReceived, this, &MqttClient::onPingResponseReceived);
 }
 
-void MqttClient::setConnectionParameters(const QString& host, quint16 port, const QString& clientId) {
+void MqttClient::setConnectionParameters(const QString &host, quint16 port, const QString& topic, const QString& clientId) {
     m_hostname = host;
     m_port = port;
     m_clientId = clientId.isEmpty() ? QString("QtMqttClient_%1").arg(QDateTime::currentMSecsSinceEpoch()) : clientId;
+    if (!topic.isEmpty()) {
+        m_topic = topic;
+    }
 
     m_client->setHostname(m_hostname);
     m_client->setPort(m_port);
     m_client->setClientId(m_clientId);
 
-    emit mqttLogMessage(QString("设置连接参数: Host=%1, Port=%2, ClientId=%3")
-                        .arg(m_hostname).arg(m_port).arg(m_clientId).toUtf8());
+    emit mqttLogMessage(QString("设置连接参数: Host=%1, Port=%2, ClientId=%3, topic=%4")
+                        .arg(m_hostname).arg(m_port).arg(m_clientId).arg(m_topic).toUtf8());
 }
 
 void MqttClient::setCredentials(const QString& username, const QString& password) {
@@ -97,14 +101,10 @@ void MqttClient::disconnectFromHost() {
 
 void MqttClient::stopMqttClient() {
     // 停止连接检查定时器
-    if (m_connectionCheckTimer) {
-        m_connectionCheckTimer->stop();
-    }
+    enableConnectionCheck(false);
 
     // 停止发送消息定时器
-    if (m_sendMessageTimer) {
-        m_sendMessageTimer->stop();
-    }
+    enableAutoSendMessage(false);
 
     // 断开MQTT连接
     disconnectFromHost();
@@ -247,12 +247,12 @@ void MqttClient::onErrorChanged(QMqttClient::ClientError error) {
         };
 
         // 如果是需要重连的错误类型
-        if (reconnectErrors.contains(error)) {
+        if (reconnectErrors.contains(error)&&m_connectionCheckEnabled) {
             // 如果当前状态不是连接中或已连接
             if (m_client->state() != QMqttClient::Connected &&
                 m_client->state() != QMqttClient::Connecting) {
                 // 检查重连次数限制
-                if (m_reconnectAttempts >= m_MAX_RECONNECT_ATTEMPTS) {
+                if (m_reconnectAttempts >= m_MAX_RECONNECT_ATTEMPTS || !m_connectionCheckEnabled) {
                     if (m_reconnectAttempts == m_MAX_RECONNECT_ATTEMPTS) {
                         emit mqttLogMessage("已达到最大重连次数，需手动重连MQTT服务");
                         m_reconnectAttempts++; // 避免重复记录
@@ -261,7 +261,8 @@ void MqttClient::onErrorChanged(QMqttClient::ClientError error) {
                 }
                 m_reconnectAttempts++; // 增加重连计数
                 // 延迟10秒后重连
-                QTimer::singleShot(10000, this, [this]() {
+                int interval = 1000 * pow(2, m_reconnectAttempts);
+                QTimer::singleShot(interval, this, [this]() {
                     if (m_client->state() == QMqttClient::Connected) {
                         // 连接成功时重置计数器
                         m_reconnectAttempts = 0;
@@ -296,6 +297,11 @@ void MqttClient::onConnected() {
     // 启用自动发送消息
     if (m_autoSendMessageEnabled) {
         m_sendMessageTimer->start();
+    }
+
+    //自动订阅到主题,如果topic不为空
+    if (!m_topic.isEmpty()) {
+        subscribeToTopic(m_topic,0);
     }
 }
 

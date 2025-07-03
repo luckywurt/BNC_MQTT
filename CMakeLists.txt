@@ -160,16 +160,65 @@ if(WIN32 AND NOT DEFINED CMAKE_TOOLCHAIN_FILE)
     endforeach()
 endif()
 
-#
-## 测试代码
-## 添加 src/MQTT 目录中的源文件
-#file(GLOB_RECURSE MQTT_SRC src/MQTT/*.cpp)
-#file(GLOB_RECURSE MQTT_HDR src/MQTT/*.h)
-## 创建静态库
-#add_library(mqttlib STATIC ${MQTT_SRC} ${MQTT_HDR})
-#target_include_directories(mqttlib PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src/MQTT)
-#target_link_libraries(mqttlib PUBLIC Qt5::Core Qt5::Mqtt )
-#
-## 创建测试可执行文件并链接 mqttlib
-#add_executable(test_jsonmessage test/test_jsonmessage.cpp)
-#target_link_libraries(test_jsonmessage PRIVATE mqttlib Qt5::Mqtt)
+# === 自定义发布路径 ===
+set(RELEASE_DIR "${CMAKE_BINARY_DIR}/bnc_release")
+
+# 创建目标目录
+add_custom_command(TARGET bnc POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${RELEASE_DIR}"
+)
+
+# 拷贝可执行文件
+add_custom_command(TARGET bnc POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy "$<TARGET_FILE:bnc>" "${RELEASE_DIR}"
+)
+
+# 拷贝 Qt 依赖 DLL
+set(QT_DLLS
+        Qt5Core.dll
+        Qt5Gui.dll
+        Qt5Widgets.dll
+        Qt5Svg.dll
+        Qt5Network.dll
+        Qt5PrintSupport.dll
+        Qt5Positioning.dll
+        Qt5Qml.dll
+        Qt5QmlModels.dll
+        Qt5Quick.dll
+        Qt5QuickWidgets.dll
+)
+
+foreach(DLL ${QT_DLLS})
+    add_custom_command(TARGET bnc POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${QT_INSTALL_PATH}/bin/${DLL}"
+            "${RELEASE_DIR}/${DLL}"
+    )
+endforeach()
+
+# 拷贝 ICU、OpenSSL 等额外依赖（路径与你 Qt 安装版本有关）
+set(EXTRA_DLLS
+        libgcc_s_seh-1.dll
+        libstdc++-6.dll
+        libwinpthread-1.dll
+)
+
+foreach(DLL ${EXTRA_DLLS})
+    add_custom_command(TARGET bnc POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${QT_INSTALL_PATH}/bin/${DLL}"
+            "${RELEASE_DIR}/${DLL}"
+    )
+endforeach()
+
+# 拷贝平台插件目录
+add_custom_command(TARGET bnc POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "${RELEASE_DIR}/platforms"
+)
+foreach(PLUGDLL qwindows.dll qoffscreen.dll)
+    add_custom_command(TARGET bnc POST_BUILD
+            COMMAND ${CMAKE_COMMAND} -E copy_if_different
+            "${QT_INSTALL_PATH}/plugins/platforms/${PLUGDLL}"
+            "${RELEASE_DIR}/platforms/${PLUGDLL}"
+    )
+endforeach()

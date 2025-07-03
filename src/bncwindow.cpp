@@ -2558,14 +2558,6 @@ void bncWindow::startRealTime() {
 ///////////////////////////////////////////////////////////////////////////
 void bncWindow::startMQTTConnect() {
   BNC_CORE->slotMQTTMessage("Start MQTT Message", true);
-  // 输出配置信息
-  BNC_CORE->slotMQTTMessage("MQTT config:", true);
-  BNC_CORE->slotMQTTMessage("MQTT Host:" + _mqttHostLineEdit->text().toUtf8(), true);
-  BNC_CORE->slotMQTTMessage("MQTT Port:" + _mqttPortLineEdit->text().toUtf8(), true);
-  BNC_CORE->slotMQTTMessage("MQTT Topic:" + _mqttTopicLineEdit->text().toUtf8(), true);
-  BNC_CORE->slotMQTTMessage("MQTT User:" + _mqttUserLineEdit->text().toUtf8(), true);
-  BNC_CORE->slotMQTTMessage("MQTT NodeId:" + _mqttNodeIdLineEdit->text().toUtf8(), true);
-  BNC_CORE->slotMQTTMessage("MQTT Message Send Interval(s):" + _mqttSendIntervalLineEdit->text().toUtf8(), true);
 
   QString host = _mqttHostLineEdit->text().trimmed();
   quint16 port = static_cast<quint16>(_mqttPortLineEdit->text().toUInt());
@@ -2576,21 +2568,14 @@ void bncWindow::startMQTTConnect() {
   int messageInterval = _mqttSendIntervalLineEdit->text().toInt();
 
   // MQTT日志消息连接
+  disconnect(_mqttClient, &MqttClient::mqttLogMessage, this, &bncWindow::slotMQTTLogMessage);
   connect(_mqttClient, &MqttClient::mqttLogMessage, this, &bncWindow::slotMQTTLogMessage);
-  // MQTT服务器连接，自动订阅主题
-  connect(_mqttClient, &MqttClient::connected, this, [this]() {
-    _mqttClient->subscribeToTopic(_mqttTopicLineEdit->text().trimmed()); // 订阅到主题
-  });
   // MQTT自动发送消息
+  disconnect(_mqttClient, &MqttClient::autoSendMsg, this, &bncWindow::slotPublishMQTTMsg);
   connect(_mqttClient, &MqttClient::autoSendMsg, this, &bncWindow::slotPublishMQTTMsg);
 
-  //Debug代码
-  connect(_mqttClient, &MqttClient::messageReceived, [](const QString& topic, const QString& message) {
-    qDebug() << "收到消息 - 主题:" << topic << "内容:" << message;
-  });
-
   // 设置连接参数
-  _mqttClient->setConnectionParameters(host, port, clientId);
+  _mqttClient->setConnectionParameters(host, port, topic, clientId);
   // 用户认证，如果有
   if (!username.isEmpty()) {
     _mqttClient->setCredentials(username, password);
@@ -2613,7 +2598,6 @@ void bncWindow::slotPublishMQTTMsg(const QString& topic) {
 }
 
 void bncWindow::stopMQTTConnect() {
-  BNC_CORE->slotMQTTMessage("MQTT Client stop!", true);
   // 停止MQTT连接
   _mqttClient->stopMqttClient();
 }

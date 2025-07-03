@@ -20,7 +20,7 @@ public:
     ~MqttClient();
 
     // 连接相关方法
-    void setConnectionParameters(const QString &host, quint16 port, const QString &clientId = QString());
+    void setConnectionParameters(const QString &host, quint16 port, const QString &topic,const QString &clientId = QString() );
     void setCredentials(const QString &username, const QString &password);
     void connectToHost();
     void disconnectFromHost();
@@ -84,7 +84,7 @@ private:
     QString m_lastError;            // 最后的错误信息
 
     int m_reconnectAttempts = 0;          // 错误重连计数器
-    int m_MAX_RECONNECT_ATTEMPTS = 3;     // 最大重连次数
+    int m_MAX_RECONNECT_ATTEMPTS = 10;     // 最大重连次数
 
     QTimer *m_connectionCheckTimer; // 连接检查定时器
     bool m_connectionCheckEnabled;  // 是否启用连接检查
