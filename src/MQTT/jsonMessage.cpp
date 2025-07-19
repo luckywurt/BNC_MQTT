@@ -421,7 +421,7 @@ void JsonMessage::updateTimeStampIfNeeded() {
 
 QString JsonMessage::statusToString(StationStatus status) const {
     switch (status) {
-    case StationStatus::Connected: return "normal";
+    case StationStatus::Connected: return "connected";
     case StationStatus::Timeout: return "timeout";
     case StationStatus::Disconnect: return "disconnect";
     case StationStatus::Error: return "error";

@@ -132,6 +132,9 @@ bncWindow::bncWindow() {
   _mqttClient    = new MqttClient(this);
   _jsonMessage   = new JsonMessage(this);
 
+  // MQTT日志消息连接
+  connect(_mqttClient, &MqttClient::mqttLogMessage, this, &bncWindow::slotMQTTLogMessage);
+
   connect(BNC_CORE, SIGNAL(newPosition(QByteArray, bncTime, QVector<double>)),
           _bncFigurePPP, SLOT(slotNewPosition(QByteArray, bncTime, QVector<double>)));
 
@@ -2567,9 +2570,6 @@ void bncWindow::startMQTTConnect() {
   QString topic = _mqttTopicLineEdit->text().trimmed();
   int messageInterval = _mqttSendIntervalLineEdit->text().toInt();
 
-  // MQTT日志消息连接
-  disconnect(_mqttClient, &MqttClient::mqttLogMessage, this, &bncWindow::slotMQTTLogMessage);
-  connect(_mqttClient, &MqttClient::mqttLogMessage, this, &bncWindow::slotMQTTLogMessage);
   // MQTT自动发送消息
   disconnect(_mqttClient, &MqttClient::autoSendMsg, this, &bncWindow::slotPublishMQTTMsg);
   connect(_mqttClient, &MqttClient::autoSendMsg, this, &bncWindow::slotPublishMQTTMsg);
@@ -2584,6 +2584,10 @@ void bncWindow::startMQTTConnect() {
   _mqttClient->connectToHost();
   // 设置自动发送消息间隔
   _mqttClient->setSendMessageInterval(messageInterval * 1000);
+  // 启动自动发送消息
+  _mqttClient->enableAutoSendMessage();
+  // 启动MQTT连接检查
+  _mqttClient->enableConnectionCheck();
 
   // 消息存储对象初始化
   //-----------------------------------
